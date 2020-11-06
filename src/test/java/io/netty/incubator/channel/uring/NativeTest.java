@@ -292,4 +292,38 @@ public class NativeTest {
             ringBuffer.close();
         }
     }
+
+    @Test
+    public void test() throws InterruptedException {
+        RingBuffer ringBuffer = Native.createRingBuffer(32);
+        IOUringSubmissionQueue submissionQueue = ringBuffer.ioUringSubmissionQueue();
+
+        IOUringCompletionQueue ioUringCompletionQueue = ringBuffer.ioUringCompletionQueue();
+        submissionQueue.addTimeout(2, (short) 0);
+        submissionQueue.submit();
+
+        Thread waitingCqe = new Thread() {
+            @Override
+            public void run() {
+                ioUringCompletionQueue.ioUringWaitCqe();
+                assertEquals(1, ioUringCompletionQueue.process(new IOUringCompletionQueueCallback() {
+                    @Override
+                    public void handle(int fd, int res, int flags, byte op, short mask) {
+                        System.out.println("res: " + res);
+                    }
+                }));
+            }
+        };
+        waitingCqe.start();
+
+        waitingCqe.join();
+    }
+
+    @Test
+    public void ringbuffer() {
+        for (int i = 0; i < 30; i++) {
+            RingBuffer ringBuffer = Native.createRingBuffer(32);
+            ringBuffer.close();
+        }
+    }
 }

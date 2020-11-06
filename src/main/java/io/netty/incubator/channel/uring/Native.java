@@ -35,6 +35,9 @@ final class Native {
     static final int DEFAULT_IOSEQ_ASYNC_THRESHOLD =
             Math.max(0, SystemPropertyUtil.getInt("io.netty.uring.iosqeAsyncThreshold", 25));
 
+    // Todo configurable
+    static final boolean SQPOLL = true;
+
     static {
         Selector selector = null;
         try {
@@ -118,6 +121,9 @@ final class Native {
     static final byte IORING_OP_RECVMSG = NativeStaticallyReferencedJniMethods.ioringOpRecvmsg();
     static final int IORING_ENTER_GETEVENTS = NativeStaticallyReferencedJniMethods.ioringEnterGetevents();
     static final int IOSQE_ASYNC = NativeStaticallyReferencedJniMethods.iosqeAsync();
+    static final int IORING_SQ_POLL = NativeStaticallyReferencedJniMethods.sqPoll();
+    static final int IORING_NEED_WAKEUP = NativeStaticallyReferencedJniMethods.sqNeedWakeUp();
+    static final int IORING_WAKEUP = NativeStaticallyReferencedJniMethods.ioringEnterWakeUp();
 
     private static final int[] REQUIRED_IORING_OPS = {
             IORING_OP_POLL_ADD,
@@ -138,7 +144,15 @@ final class Native {
     }
 
     static RingBuffer createRingBuffer(int ringSize, int iosqeAsyncThreshold) {
-        long[][] values = ioUringSetup(ringSize);
+        long[][] values;
+        if (Native.SQPOLL) {
+            values = ioUringSetup(ringSize, IORING_SQ_POLL);
+            assert values.length == 2;
+        } else {
+            values = ioUringSetup(ringSize, 0);
+            assert values.length == 2;
+        }
+
         assert values.length == 2;
         long[] submissionQueueArgs = values[0];
         assert submissionQueueArgs.length == 11;
@@ -182,7 +196,7 @@ final class Native {
     }
 
     private static native boolean ioUringProbe(int ringFd, int[] ios);
-    private static native long[][] ioUringSetup(int entries);
+    private static native long[][] ioUringSetup(int entries, int flags);
 
     public static native int ioUringEnter(int ringFd, int toSubmit, int minComplete, int flags);
 

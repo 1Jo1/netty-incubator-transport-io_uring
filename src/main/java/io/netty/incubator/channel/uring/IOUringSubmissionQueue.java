@@ -63,7 +63,6 @@ final class IOUringSubmissionQueue {
     private final long timeoutMemoryAddress;
     private final int iosqeAsyncThreshold;
     private int numHandledFds;
-    private int head;
     private int tail;
 
     IOUringSubmissionQueue(long kHeadAddress, long kTailAddress, long kRingMaskAddress, long kRingEntriesAddress,
@@ -81,7 +80,6 @@ final class IOUringSubmissionQueue {
         this.ringFd = ringFd;
         this.ringEntries = PlatformDependent.getIntVolatile(kRingEntriesAddress);
         this.ringMask = PlatformDependent.getIntVolatile(kRingMaskAddress);
-        this.head = PlatformDependent.getIntVolatile(kHeadAddress);
         this.tail = PlatformDependent.getIntVolatile(kTailAddress);
 
         this.timeoutMemoryAddress = PlatformDependent.allocateMemory(KERNEL_TIMESPEC_SIZE);
@@ -112,7 +110,7 @@ final class IOUringSubmissionQueue {
 
     private boolean enqueueSqe(byte op, int flags, int rwFlags, int fd,
                                long bufferAddress, int length, long offset, short data) {
-        int pending = tail - head;
+        int pending = tail - PlatformDependent.getIntVolatile(kHeadAddress);
         boolean submit = pending == ringEntries;
         if (submit) {
             int submitted = submit();
@@ -129,6 +127,8 @@ final class IOUringSubmissionQueue {
     private void setData(long sqe, byte op, int flags, int rwFlags, int fd, long bufferAddress, int length,
                          long offset, short data) {
         //set sqe(submission queue) properties
+
+        System.out.println("Op: " + op);
 
         PlatformDependent.putByte(sqe + SQE_OP_CODE_FIELD, op);
         PlatformDependent.putByte(sqe + SQE_FLAGS_FIELD, (byte) flags);
@@ -210,12 +210,12 @@ final class IOUringSubmissionQueue {
     }
 
     int submit() {
-        int submit = tail - head;
+        int submit = tail - PlatformDependent.getIntVolatile(kHeadAddress);
         return submit > 0 ? submit(submit, 0, 0) : 0;
     }
 
     int submitAndWait() {
-        int submit = tail - head;
+        int submit = tail - PlatformDependent.getIntVolatile(kHeadAddress);
         if (submit > 0) {
             return submit(submit, 1, Native.IORING_ENTER_GETEVENTS);
         }
@@ -228,16 +228,26 @@ final class IOUringSubmissionQueue {
     }
 
     private int submit(int toSubmit, int minComplete, int flags) {
+        long count = count();
         PlatformDependent.putIntOrdered(kTailAddress, tail); // release memory barrier
-        int ret = Native.ioUringEnter(ringFd, toSubmit, minComplete, flags);
-        head = PlatformDependent.getIntVolatile(kHeadAddress); // acquire memory barrier
-        if (ret != toSubmit) {
-            if (ret < 0) {
-                throw new RuntimeException("ioUringEnter syscall returned " + ret);
+
+        if (!Native.SQPOLL) {
+            int ret = Native.ioUringEnter(ringFd, toSubmit, minComplete, flags);
+            if (ret != toSubmit) {
+                if (ret < 0) {
+                    throw new RuntimeException("ioUringEnter syscall returned " + ret);
+                }
+                logger.warn("Not all submissions succeeded");
             }
-            logger.warn("Not all submissions succeeded");
+            return ret;
         }
-        return ret;
+
+        //release barrier kFlagAddress
+        if ((PlatformDependent.getIntVolatile(kFlagsAddress) & Native.IORING_NEED_WAKEUP) != 0) {
+            //System.out.println("Wakeup Thread");
+            Native.ioUringEnter(ringFd, 0, 0, Native.IORING_WAKEUP);
+        }
+        return (int) count;
     }
 
     private void setTimeout(long timeoutNanoSeconds) {
@@ -256,7 +266,7 @@ final class IOUringSubmissionQueue {
     }
 
     public long count() {
-        return tail - head;
+        return tail - PlatformDependent.getIntVolatile(kHeadAddress);
     }
 
     //delete memory

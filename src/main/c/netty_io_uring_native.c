@@ -219,10 +219,11 @@ done:
 }
 
 
-static jobjectArray netty_io_uring_setup(JNIEnv *env, jclass clazz, jint entries) {
+static jobjectArray netty_io_uring_setup(JNIEnv *env, jclass clazz, jint entries, jint flags) {
     struct io_uring_params p;
     memset(&p, 0, sizeof(p));
 
+    p.flags = flags;
     jobjectArray array = (*env)->NewObjectArray(env, 2, longArrayClass, NULL);
     if (array == NULL) {
         // This will put an OOME on the stack
@@ -477,6 +478,17 @@ static jint netty_io_uring_iosqeAsync(JNIEnv* env, jclass clazz) {
     return IOSQE_ASYNC;
 }
 
+static jint netty_io_uring_sqPoll(JNIEnv* env, jclass clazz) {
+    return IORING_SETUP_SQPOLL;
+}
+
+static jint netty_io_uring_sqNeedWakeUp(JNIEnv* env, jclass clazz) {
+    return IORING_SQ_NEED_WAKEUP;
+}
+
+static jint netty_io_uring_enter_wakeup(JNIEnv *env, jclass clazz) {
+    return IORING_ENTER_SQ_WAKEUP;
+}
 
 // JNI Method Registration Table Begin
 static const JNINativeMethod statically_referenced_fixed_method_table[] = {
@@ -526,12 +538,15 @@ static const JNINativeMethod statically_referenced_fixed_method_table[] = {
   { "ioringOpSendmsg", "()B", (void *) netty_io_uring_ioringOpSendmsg },
   { "ioringOpRecvmsg", "()B", (void *) netty_io_uring_ioringOpRecvmsg },
   { "ioringEnterGetevents", "()I", (void *) netty_io_uring_ioringEnterGetevents },
-  { "iosqeAsync", "()I", (void *) netty_io_uring_iosqeAsync }
+  { "iosqeAsync", "()I", (void *) netty_io_uring_iosqeAsync } ,
+  { "sqPoll", "()I", (void *) netty_io_uring_sqPoll},
+  { "sqNeedWakeUp", "()I", (void *) netty_io_uring_sqNeedWakeUp},
+  { "ioringEnterWakeUp", "()I", (void *) netty_io_uring_enter_wakeup}
 };
 static const jint statically_referenced_fixed_method_table_size = sizeof(statically_referenced_fixed_method_table) / sizeof(statically_referenced_fixed_method_table[0]);
 
 static const JNINativeMethod method_table[] = {
-    {"ioUringSetup", "(I)[[J", (void *) netty_io_uring_setup},
+    {"ioUringSetup", "(II)[[J", (void *) netty_io_uring_setup},
     {"ioUringProbe", "(I[I)Z", (void *) netty_io_uring_probe},
     {"ioUringExit", "(JIJIJII)V", (void *) netty_io_uring_ring_buffer_exit},
     {"createFile", "()I", (void *) netty_create_file},
