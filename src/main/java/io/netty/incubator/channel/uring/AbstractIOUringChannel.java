@@ -229,6 +229,9 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
 
     @Override
     protected void doClose() throws Exception {
+        synchronized (RingBuffer.lock) {
+            System.out.println("doClose() fd: " + socket.intValue());
+        }
         freeRemoteAddressMemory();
         active = false;
 
@@ -251,7 +254,10 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
                 }
             } else {
                 // This one was never registered just use a syscall to close.
-                socket.close();
+                synchronized (RingBuffer.lock) {
+                    System.out.println("socket close");
+                    socket.close();
+                }
             }
         }
     }
@@ -355,6 +361,9 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
         }
 
         private void forceClose(ChannelPromise promise) {
+            synchronized (RingBuffer.lock) {
+                System.out.println("ForceClose: fd: " + socket.intValue());
+            }
             super.close(promise);
         }
 
@@ -457,6 +466,7 @@ abstract class AbstractIOUringChannel extends AbstractChannel implements UnixCha
 
         final void schedulePollIn() {
             assert (ioState & POLL_IN_SCHEDULED) == 0;
+            //System.out.println("Pollin Fd: " + fd().intValue());
             if (!isActive() || shouldBreakIoUringInReady(config())) {
                 return;
             }

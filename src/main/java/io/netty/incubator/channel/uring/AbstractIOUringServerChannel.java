@@ -46,6 +46,7 @@ abstract class AbstractIOUringServerChannel extends AbstractIOUringChannel imple
         // See https://man7.org/linux/man-pages/man2/accept.2.html
         acceptedAddressLengthMemory.putLong(0, Native.SIZEOF_SOCKADDR_STORAGE);
         acceptedAddressLengthMemoryAddress = Buffer.memoryAddress(acceptedAddressLengthMemory);
+        System.out.println("ServerSocket fd: " + socket.intValue());
     }
 
     @Override

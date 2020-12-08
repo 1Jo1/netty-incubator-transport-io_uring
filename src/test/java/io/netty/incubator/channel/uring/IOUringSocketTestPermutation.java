@@ -46,9 +46,9 @@ public class IOUringSocketTestPermutation extends SocketTestPermutation {
     static final IOUringSocketTestPermutation INSTANCE = new IOUringSocketTestPermutation();
 
     static final EventLoopGroup IO_URING_BOSS_GROUP =
-            new IOUringEventLoopGroup(BOSSES, new DefaultThreadFactory("testsuite-io_uring-boss", true));
+            new IOUringEventLoopGroup(1, new DefaultThreadFactory("testsuite-io_uring-boss", false));
     static final EventLoopGroup IO_URING_WORKER_GROUP =
-            new IOUringEventLoopGroup(WORKERS, new DefaultThreadFactory("testsuite-io_uring-worker", true));
+            new IOUringEventLoopGroup(1, new DefaultThreadFactory("testsuite-io_uring-worker", false));
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(IOUringSocketTestPermutation.class);
 
@@ -70,41 +70,34 @@ public class IOUringSocketTestPermutation extends SocketTestPermutation {
             @Override
             public ServerBootstrap newInstance() {
                 return new ServerBootstrap().group(IO_URING_BOSS_GROUP, IO_URING_WORKER_GROUP)
-                                            .channel(IOUringServerSocketChannel.class);
+                        .channel(IOUringServerSocketChannel.class);
             }
         });
-        if (isServerFastOpen()) {
-            toReturn.add(new BootstrapFactory<ServerBootstrap>() {
-                @Override
-                public ServerBootstrap newInstance() {
-                    ServerBootstrap serverBootstrap = new ServerBootstrap().group(IO_URING_BOSS_GROUP,
-                                                                                  IO_URING_WORKER_GROUP)
-                                                                           .channel(IOUringServerSocketChannel.class);
-                    serverBootstrap.option(IOUringChannelOption.TCP_FASTOPEN, 5);
-                    return serverBootstrap;
-                }
-            });
-        }
+//        if (isServerFastOpen()) {
+//            toReturn.add(new BootstrapFactory<ServerBootstrap>() {
+//                @Override
+//                public ServerBootstrap newInstance() {
+//                    ServerBootstrap serverBootstrap = new ServerBootstrap().group(IO_URING_BOSS_GROUP,
+//                            IO_URING_WORKER_GROUP)
+//                            .channel(IOUringServerSocketChannel.class);
+//                    //serverBootstrap.option(IOUringChannelOption.TCP_FASTOPEN, 5);
+//                    return serverBootstrap;
+//                }
+//            });
+//        }
         toReturn.add(new BootstrapFactory<ServerBootstrap>() {
             @Override
             public ServerBootstrap newInstance() {
                 return new ServerBootstrap().group(nioBossGroup, nioWorkerGroup)
-                                            .channel(NioServerSocketChannel.class);
+                        .channel(NioServerSocketChannel.class);
             }
         });
-
         return toReturn;
     }
 
     @Override
     public List<BootstrapFactory<Bootstrap>> clientSocket() {
         return Arrays.asList(
-                new BootstrapFactory<Bootstrap>() {
-                    @Override
-                    public Bootstrap newInstance() {
-                        return new Bootstrap().group(IO_URING_WORKER_GROUP).channel(IOUringSocketChannel.class);
-                    }
-                },
                 new BootstrapFactory<Bootstrap>() {
                     @Override
                     public Bootstrap newInstance() {

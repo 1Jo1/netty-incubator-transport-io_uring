@@ -20,9 +20,13 @@ final class RingBuffer {
     private final IOUringSubmissionQueue ioUringSubmissionQueue;
     private final IOUringCompletionQueue ioUringCompletionQueue;
 
+    static final Object lock = new Object();
+
     RingBuffer(IOUringSubmissionQueue ioUringSubmissionQueue, IOUringCompletionQueue ioUringCompletionQueue) {
         this.ioUringSubmissionQueue = ioUringSubmissionQueue;
         this.ioUringCompletionQueue = ioUringCompletionQueue;
+
+        System.out.println("Create RingBuffer : " + ioUringCompletionQueue.ringFd);
     }
 
     int fd() {
@@ -38,6 +42,7 @@ final class RingBuffer {
     }
 
     void close() {
+        System.out.println("Close RingBuffer");
         ioUringSubmissionQueue.release();
         Native.ioUringExit(
                 ioUringSubmissionQueue.submissionQueueArrayAddress,

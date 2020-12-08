@@ -126,10 +126,10 @@ final class IOUringSubmissionQueue {
 
     private void setData(long sqe, byte op, int flags, int rwFlags, int fd, long bufferAddress, int length,
                          long offset, short data) {
-        //set sqe(submission queue) properties
-
-        System.out.println("Op: " + op);
-
+        //System.out.println("----------------------------");
+        synchronized (RingBuffer.lock) {
+            System.out.println("SQE Ringfd: " + ringFd + " op:  " + op + " fd: " + fd + " data: " + data);
+        }
         PlatformDependent.putByte(sqe + SQE_OP_CODE_FIELD, op);
         PlatformDependent.putByte(sqe + SQE_FLAGS_FIELD, (byte) flags);
         // This constant is set up-front
@@ -228,6 +228,11 @@ final class IOUringSubmissionQueue {
     }
 
     private int submit(int toSubmit, int minComplete, int flags) {
+        synchronized (RingBuffer.lock) {
+            System.out.println("----------------------------");
+            System.out.println("Submit Ringfd: " + ringFd);
+            System.out.println("----------------------------");
+        }
         long count = count();
         PlatformDependent.putIntOrdered(kTailAddress, tail); // release memory barrier
 

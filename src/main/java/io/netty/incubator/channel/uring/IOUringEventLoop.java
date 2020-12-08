@@ -66,6 +66,7 @@ final class IOUringEventLoop extends SingleThreadEventLoop implements IOUringCom
         ringBuffer = Native.createRingBuffer(ringSize, iosqeAsyncThreshold);
 
         eventfd = Native.newBlockingEventFd();
+        System.out.println("EventFd: " + eventfd);
         logger.trace("New EventLoop: {}", this.toString());
     }
 
@@ -134,6 +135,8 @@ final class IOUringEventLoop extends SingleThreadEventLoop implements IOUringCom
 
         // Lets add the eventfd related events before starting to do any real work.
         addEventFdRead(submissionQueue);
+
+        //System.out.println("First Eventloop!!!");
 
         for (;;) {
             try {
@@ -217,6 +220,18 @@ final class IOUringEventLoop extends SingleThreadEventLoop implements IOUringCom
 
     @Override
     public void handle(int fd, int res, int flags, byte op, short data) {
+//        System.out.println("----------------------------");
+//        System.out.println("CQE Ringfd: " + this.ringBuffer.fd());
+//        System.out.println("CQE res: " + res);
+//        System.out.println("CQE op:  " + op);
+//        System.out.println("CQE fd: " + fd);
+//        System.out.println("CQE data: " + data);
+//        System.out.println("----------------------------");
+
+        synchronized (RingBuffer.lock) {
+            System.out.println("CQE Ringfd: " + ringBuffer.fd() + " op:  " + op + " fd: " + fd + " res: " + res + " data: " + data);
+        }
+        //System.out.flush();
         if (op == Native.IORING_OP_READ && eventfd.intValue() == fd) {
             pendingWakeup = false;
             addEventFdRead(ringBuffer.ioUringSubmissionQueue());
@@ -286,6 +301,7 @@ final class IOUringEventLoop extends SingleThreadEventLoop implements IOUringCom
 
     @Override
     protected void cleanup() {
+        System.out.println("Cleanup");
         if (pendingWakeup) {
             // Another thread is in the process of writing to the eventFd. We must wait to
             // receive the corresponding CQE before closing it or else the fd int may be
@@ -322,6 +338,9 @@ final class IOUringEventLoop extends SingleThreadEventLoop implements IOUringCom
     protected void wakeup(boolean inEventLoop) {
         if (!inEventLoop && nextWakeupNanos.getAndSet(AWAKE) != AWAKE) {
             // write to the evfd which will then wake-up epoll_wait(...)
+            synchronized (RingBuffer.lock) {
+                System.out.println("Eventfd Write RingBuffer: " + ringBuffer.fd());
+            }
             Native.eventFdWrite(eventfd.intValue(), 1L);
         }
     }
