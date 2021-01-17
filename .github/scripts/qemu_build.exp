@@ -27,6 +27,9 @@ send "netty\r"
 expect $console
 send "sudo -s\r"
 
+expect $console
+send "uname -r"
+
 expect $rootConsole
 send "cd /mnt/\r"
 
